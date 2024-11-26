@@ -1,0 +1,57 @@
+name: Deploy pages
+
+# 當 main 分支有 push 發生時，就觸發此工作流程
+on:
+  push:
+    branches:
+      - main
+
+# 權限設定
+permissions:
+  # 允許工作流程對 repo 的內容進行寫操作
+  contents: write
+  # 允許將內容部署到 GitHub Pages
+  pages: write
+  # 用於生成 OIDC token，以便與外部服務交互
+  id-token: write
+
+jobs:
+  # 第一個任務: 負責編譯專案
+  build:
+    # 指定執行環境
+    runs-on: ubuntu-latest
+    # 步驟
+    steps:
+      # checkout code
+      - name: Checkout
+        uses: actions/checkout@v4
+      # 設定 NodeJS 環境
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      # 安裝依賴的套件
+      - name: Install dependencies
+        run: npm install
+      # 編譯 react 專案
+      - name: Build
+        run: npm run build
+      # 上傳 Artifact 給下一個任務使用
+      - name: Upload
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+  # 負責部署的任務
+  deployment:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    # 依賴於 build 任務，build 任務成功後，才會執行這個任務
+    needs: build
+    steps:
+      # 透過 deploy-pages 這個 action 來部署 GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
